@@ -1,8 +1,13 @@
 import json
 import subprocess
 import functions
+import os
 
 
+config_status = os.path.isfile('./config.json')
+if config_status is False:
+    with open('config.json', 'x') as f:
+        f.write('{"vencord_installed": false, "vencord_folder_i": false, "vencord_folder": "", "vencord_userplugins_folder": ""}')
 try:
     subprocess.call(["git", "--version"])
 except FileNotFoundError:
