@@ -29,48 +29,68 @@ def install_vencord(config):
 
 # Выбор папки с венкордом
 def select_vencord_folder(config):
-    vencord_folder_raw = input('Enter a vencord folder:\n')
-    vencord_folder = ''
-    for char in vencord_folder_raw:
-        vencord_folder += char.replace('\\', '/')
-    config['vencord_userplugins_folder'] = vencord_folder + '/src/userplugins'
-    config['vencord_folder'] = vencord_folder
-    config['vencord_folder_i'] = True
-    return config
-
+    while True:
+        vencord_folder_raw = input('Enter a vencord folder:\n')
+        try:
+            os.chdir(vencord_folder_raw)
+            check_folder = os.path.isdir('./src')
+        except (FileNotFoundError, UnboundLocalError):
+            check_folder = False
+        if check_folder is True:
+            vencord_folder = ''
+            for char in vencord_folder_raw:
+                vencord_folder += char.replace('\\', '/')
+            config['vencord_userplugins_folder'] = vencord_folder + '/src/userplugins'
+            config['vencord_folder'] = vencord_folder
+            config['vencord_folder_i'] = True
+            return config
+        else:
+            print('Enter a valid vencord folder')
 
 # Селектор
 def selector(config):
-    selector = str(input('1. Manage Vencord | 2. Plugins | 3. Install themes | 4. Build | 0. Exit:\n'))
-    match selector:
-        case '1':
-            manage_vencord(config)
-        case '2':
-            plugins_selector(config)
-        case '3':
-            install_themes(config)
-        case '4':
-            vencord_build(config)
-        case '0':
-            os.chdir(vencord_dev_manager)
-            config = json.dumps(config)
-            with open('config.json', 'w') as f:
-                f.write(config)
-            SystemExit
+    while True:
+        selector = (input('1. Manage Vencord | 2. Plugins | 3. Install themes | 4. Build | 0. Exit:\n'))
+        if selector.isdigit() and int(selector) < 5 or int(selector) == 0:
+            match int(selector):
+                case 1:
+                    manage_vencord(config)
+                case 2:
+                    plugins_selector(config)
+                case 3:
+                    install_themes(config)
+                case 4:
+                    vencord_build(config)
+                case 0:
+                    os.chdir(vencord_dev_manager)
+                    config = json.dumps(config)
+                    with open('config.json', 'w') as f:
+                        f.write(config)
+                    SystemExit
+            break
+        elif selector.isalpha():
+            print(f"{selector} is not a number")
+        else:
+            print(f'{selector} is not a selector menu')
 
 # 1. Запуск менеджера
 def manage_vencord(config):
-    os.chdir(config['vencord_folder'])
-    os.system('pnpm inject')
+    manage_selector = str(input('1. Vencord Installer | 2. Select another vencord folder | Other symbol - Return:\n'))
+    match manage_selector:
+        case '1':
+            os.chdir(config['vencord_folder'])
+            os.system('pnpm inject')
+        case '2':
+            select_vencord_folder(config)
     selector(config)
 
 
 # 2. Плагины
 def plugins_selector(config):
-    plugins_selector = str(input('1. Install plugin by link | 2. Update all plugins | 3. Install dev favorite plugins | 4. List of installed plugins | 0. Return:\n'))
+    plugins_selector = str(input('1. Install plugin by link | 2. Update all plugins | 3. Install dev favorite plugins | 4. List of installed plugins | Other symbol - Return:\n'))
     match plugins_selector:
         case '1':
-            plugin_link = input('Enter a github link or 0 to return:\n')
+            plugin_link = input('Enter a github link or any symbol to return:\n')
             if plugin_link[0] == 'h':
                 os.chdir(config['vencord_userplugins_folder'])
                 os.system(f'git clone {plugin_link}')
@@ -102,12 +122,11 @@ def plugins_selector(config):
 
 # 3. Установка тем
 def install_themes(config):
-    theme_link = input('Enter a link to raw file or 0 to return:\n')
+    theme_link = input('Enter a link to raw file or any symbol to return:\n')
     if theme_link[0] == 'h':
         os.chdir(os.environ['USERPROFILE'] + '/AppData/Roaming/Vencord/themes')
         os.system(f'curl {theme_link} -O')
-    else:
-        selector(config)
+    selector(config)
 
 
 # 4. Билд венкорда
