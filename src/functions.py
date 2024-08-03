@@ -29,23 +29,20 @@ def install_vencord(config):
 
 # Выбор папки с венкордом
 def select_vencord_folder(config):
-    while True:
-        vencord_folder_raw = input('Enter a vencord folder:\n')
-        try:
-            os.chdir(vencord_folder_raw)
-            check_folder = os.path.isdir('./src')
-        except (FileNotFoundError, UnboundLocalError):
-            check_folder = False
-        if check_folder is True:
-            vencord_folder = ''
-            for char in vencord_folder_raw:
-                vencord_folder += char.replace('\\', '/')
-            config['vencord_userplugins_folder'] = vencord_folder + '/src/userplugins'
-            config['vencord_folder'] = vencord_folder
-            config['vencord_folder_i'] = True
-            return config
-        else:
-            print('Enter a valid vencord folder')
+    exit = False
+    while not exit:
+        user_input = input('Enter a vencord root folder or exit:\n')
+        if user_input == 'exit':
+            selector(config)
+        if not os.path.isdir(user_input) or not os.path.isdir(os.path.join(user_input, "src")):
+            print("Specified path is invalid (does not exist or is not a directory)")
+            continue
+        vencord_folder = user_input.replace('\\', '/')
+        config['vencord_userplugins_folder'] = vencord_folder + '/src/userplugins'
+        config['vencord_folder'] = vencord_folder
+        config['vencord_folder_i'] = True
+        return config
+
 
 # Селектор
 def selector(config):
