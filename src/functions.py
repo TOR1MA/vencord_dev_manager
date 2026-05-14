@@ -1,139 +1,155 @@
-import os
-# import shutil
+import subprocess
+import pathlib
 import json
-vencord_dev_manager = os.getcwd()
+from os import chmod
+from stat import S_IWRITE
+from webbrowser import open as webbrowser_open
+from shutil import copytree, rmtree
+from tempfile import mkdtemp
+
+DEPENDENCIES_URLS = {
+    "git": "https://git-scm.com/downloads",
+    "node": "https://nodejs.org/en/download/",
+    "pnpm": "https://pnpm.io/installation"
+}
+
+DEFAULT_CONFIG = {
+    "vencord_installation_path": str(pathlib.Path.home() / "Documents"),
+    "discord_path": "",
+    "discord_branch": "stable"
+}
 
 
-# Установка венкорда
-def install_vencord(config):
-    vencord_installation_folder_raw = str(input('Choose folder to install Vencord:\n'))
-    vencord_installation_folder = ''
-    for char in vencord_installation_folder_raw:
-        vencord_installation_folder += char.replace('\\', '/')
-    os.chdir(vencord_installation_folder)
-    os.system("git clone https://github.com/Vendicated/Vencord.git")
-    os.chdir("./Vencord")
-    os.system("npm i -g pnpm")
-    os.system("pnpm i")
-    os.system("pnpm build")
-    os.system("pnpm inject")
-    os.chdir('./src')
-    os.mkdir('userplugins')
-    os.chdir(vencord_dev_manager)
-    vencord_folder = vencord_installation_folder + '/Vencord'
-    config['vencord_folder'] = vencord_folder
-    config['vencord_userplugins_folder'] = vencord_folder + '/src/userplugins'
-    config['vencord_folder_i'] = True
-    config['vencord_installed'] = True
-    return config
-
-# Выбор папки с венкордом
-def select_vencord_folder(config):
-    exit = False
-    while not exit:
-        user_input = input('Enter a vencord root folder or exit:\n')
-        if user_input == 'exit':
-            selector(config)
-        if not os.path.isdir(user_input) or not os.path.isdir(os.path.join(user_input, "src")):
-            print("Specified path is invalid (does not exist or is not a directory)")
-            continue
-        vencord_folder = user_input.replace('\\', '/')
-        config['vencord_userplugins_folder'] = vencord_folder + '/src/userplugins'
-        config['vencord_folder'] = vencord_folder
-        config['vencord_folder_i'] = True
-        return config
+def save_config(config_path, config):
+    with open(config_path, "w") as f:
+        json.dump(config, f, indent=4)
 
 
-# Селектор
-def selector(config):
-    while True:
-        selector = (input('1. Manage Vencord | 2. Plugins | 3. Install themes | 4. Build | 0. Exit:\n'))
-        if selector.isdigit() and int(selector) < 5 or int(selector) == 0:
-            match int(selector):
-                case 1:
-                    manage_vencord(config)
-                case 2:
-                    plugins_selector(config)
-                case 3:
-                    install_themes(config)
-                case 4:
-                    vencord_build(config)
-                case 0:
-                    os.chdir(vencord_dev_manager)
-                    config = json.dumps(config)
-                    with open('config.json', 'w') as f:
-                        f.write(config)
-                    SystemExit
-            break
-        elif selector.isalpha():
-            print(f"{selector} is not a number")
-        else:
-            print(f'{selector} is not a selector menu')
-
-# 1. Запуск менеджера
-def manage_vencord(config):
-    manage_selector = str(input('1. Vencord Installer | 2. Select another vencord folder | Other symbol - Return:\n'))
-    match manage_selector:
-        case '1':
-            os.chdir(config['vencord_folder'])
-            os.system('pnpm inject')
-        case '2':
-            select_vencord_folder(config)
-    selector(config)
+def load_config(config_path):
+    if not pathlib.Path(config_path).exists():
+        save_config(config_path, DEFAULT_CONFIG)
+        return DEFAULT_CONFIG
+    with open(config_path, "r") as f:
+        return json.load(f)
 
 
-# 2. Плагины
-def plugins_selector(config):
-    plugins_selector = str(input('1. Install plugin by link | 2. Update all plugins | 3. Install dev favorite plugins | 4. List of installed plugins | Other symbol - Return:\n'))
-    match plugins_selector:
-        case '1':
-            plugin_link = input('Enter a github link or any symbol to return:\n')
-            if plugin_link[0] == 'h':
-                os.chdir(config['vencord_userplugins_folder'])
-                os.system(f'git clone {plugin_link}')
-            else:
-                selector(config)
-        case '2':
-            for folder in os.listdir(config['vencord_userplugins_folder']):
-                os.chdir(config['vencord_userplugins_folder'] + f'/{folder}')
-                os.system('git pull')
-        case '3':
-            os.chdir(config['vencord_userplugins_folder'])
-            os.system('git clone https://github.com/TOR1MA/vc-move-everyone')
-            os.system('git clone https://github.com/Syncxv/vc-message-logger-enhanced')
-            os.system('git clone https://github.com/Syncxv/vc-gif-collections')
-            os.system('git clone https://github.com/nyakowint/replaceActivityTypes')
-            os.system('git clone https://github.com/D3SOX/vc-betterActivities')
-            os.mkdir('findReply')
-            os.chdir('./findReply')
-            os.system('curl https://raw.githubusercontent.com/waresnew/Vencord/findreply/src/plugins/findReply/index.tsx -O')
-            os.system('curl https://raw.githubusercontent.com/waresnew/Vencord/findreply/src/plugins/findReply/ReplyNavigator.tsx -O')
-            os.system('curl https://raw.githubusercontent.com/waresnew/Vencord/findreply/src/plugins/findReply/styles.css -O')
-        case '4':
-            os.chdir(config['vencord_userplugins_folder'])
-            list = os.listdir(config['vencord_userplugins_folder'])
-            for plugin in list:
-                print(plugin)
-    selector(config)
+def run_command(command, cwd, callback=print):
+    process = subprocess.Popen(command, cwd=cwd, shell=True, stdout=subprocess.PIPE,
+                               stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace")
+
+    for line in process.stdout:
+        callback(line.rstrip())
+
+    process.wait()
+    return process.returncode
 
 
-# 3. Установка тем
-def install_themes(config):
-    theme_link = input('Enter a link to raw file or any symbol to return:\n')
-    if theme_link[0] == 'h':
-        os.chdir(os.environ['USERPROFILE'] + '/AppData/Roaming/Vencord/themes')
-        os.system(f'curl {theme_link} -O')
-    selector(config)
+def remove_readonly(func, path, exc):
+    chmod(path, S_IWRITE)
+    func(path)
 
 
-# 4. Билд венкорда
-def vencord_build(config):
-    os.chdir(config['vencord_folder'])
-    os.system('pnpm build')
-    selector(config)
-# 6. Удаление папки венкорда
-# def delete_vencord(config):
-#     delete_confirm = input('Type "delete folder" to confirm deletion (' + config['vencord_folder'] + '):\n')
-#     if delete_confirm.lower() == 'delete folder':
-#         shutil.rmtree(config['vencord_folder'])
-#     selector(config)
+def check_dependencies():
+    dependencies = ["git", "node", "pnpm"]
+    checked_deps = {}
+    for dep in dependencies:
+        result = subprocess.run([dep, "--version"], shell=True, capture_output=True)
+        checked_deps[dep] = result.returncode == 0
+    return checked_deps
+
+
+def download_dependencies(missing_deps):
+    for dep, available in missing_deps.items():
+        if not available:
+            webbrowser_open(DEPENDENCIES_URLS[dep])
+
+
+def install_vencord(vencord_installation_path, branch, callback, discord_path=None):
+    vencord_folder = pathlib.Path(vencord_installation_path) / "Vencord"
+    vencord_cli_path = pathlib.Path(vencord_installation_path) / "Vencord" / "dist" / "Installer"
+    run_command("git clone https://github.com/Vendicated/Vencord.git", cwd=vencord_installation_path,
+                callback=callback)
+    run_command("npm i -g pnpm", cwd=vencord_folder, callback=callback)
+    run_command("pnpm i", cwd=vencord_folder, callback=callback)
+    run_command("pnpm build", cwd=vencord_folder, callback=callback)
+    (vencord_folder / "src" / "userplugins").mkdir(parents=True, exist_ok=True)
+    if branch == 'custom':
+        run_command(f"VencordInstallerCli.exe -location {discord_path} -install", cwd=vencord_cli_path,
+                    callback=callback)
+    else:
+        run_command(f"VencordInstallerCli.exe -branch {branch} -install", cwd=vencord_cli_path, callback=callback)
+    config = {
+        "vencord_installation_path": str(vencord_installation_path),
+        "discord_path": discord_path if discord_path else "",
+        "discord_branch": branch
+    }
+    save_config("config.json", config)
+
+
+def repair_vencord(vencord_installation_path, branch, callback, discord_path=None):
+    vencord_cli_path = pathlib.Path(vencord_installation_path) / "Vencord" / "dist" / "Installer"
+    if branch == 'custom':
+        run_command(f"VencordInstallerCli.exe -location {discord_path} -repair", cwd=vencord_cli_path,
+                    callback=callback)
+    else:
+        run_command(f"VencordInstallerCli.exe -branch {branch} -repair", cwd=vencord_cli_path, callback=callback)
+
+
+def uninstall_vencord(vencord_installation_path, branch, callback, discord_path=None):
+    vencord_cli_path = pathlib.Path(vencord_installation_path) / "Vencord" / "dist" / "Installer"
+    if branch == 'custom':
+        run_command(f"VencordInstallerCli.exe -location {discord_path} -uninstall", cwd=vencord_cli_path,
+                    callback=callback)
+    else:
+        run_command(f"VencordInstallerCli.exe -branch {branch} -uninstall", cwd=vencord_cli_path, callback=callback)
+    rmtree(pathlib.Path(vencord_installation_path) / "Vencord", onexc=remove_readonly)
+
+
+def reinstall_vencord(vencord_installation_path, branch, callback, discord_path=None):
+    plugins_folder = pathlib.Path(vencord_installation_path) / "Vencord" / "src" / "userplugins"
+    temp_dir = mkdtemp()
+    copytree(plugins_folder, temp_dir, dirs_exist_ok=True)
+    uninstall_vencord(vencord_installation_path, branch, callback, discord_path)
+    install_vencord(vencord_installation_path, branch, callback, discord_path)
+    copytree(temp_dir, plugins_folder, dirs_exist_ok=True)
+    rmtree(temp_dir, onexc=remove_readonly)
+
+
+def build_vencord(vencord_installation_path, callback):
+    vencord_folder = pathlib.Path(vencord_installation_path) / "Vencord"
+    run_command("pnpm build", cwd=vencord_folder, callback=callback)
+
+
+def install_plugin(plugin_link, vencord_installation_path, callback, on_complete=None):
+    plugins_path = pathlib.Path(vencord_installation_path) / "Vencord" / "src" / "userplugins"
+    run_command(f"git clone {plugin_link}", cwd=plugins_path, callback=callback)
+    if on_complete:
+        on_complete()
+
+
+def get_installed_plugins(vencord_installation_path):
+    plugins_path = pathlib.Path(vencord_installation_path) / "Vencord" / "src" / "userplugins"
+    if not plugins_path.exists():
+        return []
+    return [folder.name for folder in plugins_path.iterdir() if folder.is_dir()]
+
+
+def update_plugins(vencord_installation_path, callback):
+    plugins_path = pathlib.Path(vencord_installation_path) / "Vencord" / "src" / "userplugins"
+    for folder in plugins_path.iterdir():
+        if folder.is_dir():
+            run_command("git pull", cwd=folder, callback=callback)
+
+
+def install_theme(theme_link, callback, on_complete=None):
+    themes_path = str(pathlib.Path.home() / "AppData" / "Roaming" / "Vencord" / "themes")
+    run_command(f"curl {theme_link} -O", cwd=themes_path, callback=callback)
+    if on_complete:
+        on_complete()
+
+
+def get_installed_themes():
+    themes_path = pathlib.Path.home() / "AppData" / "Roaming" / "Vencord" / "themes"
+    if not themes_path.exists():
+        return []
+    return [file.name for file in themes_path.iterdir() if file.is_file()]
