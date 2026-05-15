@@ -1,9 +1,14 @@
 import customtkinter as ctk
 import functions as func
+from threading import Thread
 
 
 def log_callback(master):
     return master.winfo_toplevel().log_tab.append_log
+
+
+def status_callback(master):
+    return master.winfo_toplevel().log_tab.set_status
 
 
 class EntryWithButton(ctk.CTkFrame):
@@ -63,8 +68,8 @@ class ManageVencordTab(ctk.CTkFrame):
 
         self.vencord_path = PathEntry(
             self,
-            default_path=self.vencord_installation_path,
-            placeholder=self.vencord_installation_path,
+            default_path=func.DEFAULT_VENCORD_INSTALLATION_PATH,
+            placeholder=func.DEFAULT_VENCORD_INSTALLATION_PATH,
             checkbox_text="Use default path for Vencord")
         self.vencord_path.grid(row=0, column=0, sticky="ew")
 
@@ -93,7 +98,9 @@ class ManageVencordTab(ctk.CTkFrame):
         self.buttons_frame.grid_columnconfigure((0, 1, 2, 3), weight=1)
 
         self.install_button = ctk.CTkButton(self.buttons_frame, text="Install", width=110,
-                                            command=lambda: func.install_vencord(
+                                            command=lambda: self.winfo_toplevel().run_in_thread(
+                                                target_func=func.install_vencord,
+                                                status_text="Installing Vencord",
                                                 vencord_installation_path=self.vencord_path.get(),
                                                 branch=self.branch_selection_var.get().lower(),
                                                 callback=log_callback(self),
@@ -101,7 +108,9 @@ class ManageVencordTab(ctk.CTkFrame):
         self.install_button.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
 
         self.repair_button = ctk.CTkButton(self.buttons_frame, text="Repair", width=110,
-                                           command=lambda: func.repair_vencord(
+                                           command=lambda: self.winfo_toplevel().run_in_thread(
+                                               target_func=func.repair_vencord,
+                                               status_text="Repairing Vencord",
                                                vencord_installation_path=self.vencord_path.get(),
                                                branch=self.branch_selection_var.get().lower(),
                                                callback=log_callback(self),
@@ -109,26 +118,33 @@ class ManageVencordTab(ctk.CTkFrame):
         self.repair_button.grid(row=0, column=1, padx=10, pady=10, sticky="ew")
 
         self.reinstall_button = ctk.CTkButton(self.buttons_frame, text="Reinstall", width=110,
-                                              command=lambda: func.reinstall_vencord(
-                                               vencord_installation_path=self.vencord_path.get(),
-                                               branch=self.branch_selection_var.get().lower(),
-                                               callback=log_callback(self),
-                                               discord_path=self.discord_path.get()))
+                                              command=lambda: self.winfo_toplevel().run_in_thread(
+                                                  target_func=func.reinstall_vencord,
+                                                  status_text="Reinstalling Vencord",
+                                                  vencord_installation_path=self.vencord_path.get(),
+                                                  branch=self.branch_selection_var.get().lower(),
+                                                  callback=log_callback(self),
+                                                  discord_path=self.discord_path.get()))
         self.reinstall_button.grid(row=0, column=2, padx=10, pady=10, sticky="ew")
 
         self.uninstall_button = ctk.CTkButton(self.buttons_frame, text="Uninstall", width=110,
-                                              command=lambda: func.uninstall_vencord(
-                                               vencord_installation_path=self.vencord_path.get(),
-                                               branch=self.branch_selection_var.get().lower(),
-                                               callback=log_callback(self),
-                                               discord_path=self.discord_path.get()))
+                                              command=lambda: self.winfo_toplevel().run_in_thread(
+                                                  target_func=func.uninstall_vencord,
+                                                  status_text="Uninstalling Vencord",
+                                                  vencord_installation_path=self.vencord_path.get(),
+                                                  branch=self.branch_selection_var.get().lower(),
+                                                  callback=log_callback(self),
+                                                  discord_path=self.discord_path.get()))
         self.uninstall_button.grid(row=0, column=3, padx=10, pady=10, sticky="ew")
 
-        if self.discord_branch ==  "custom":
+        if self.discord_branch == "custom":
             self.branch_selection_var.set("Custom")
             self.discord_path.grid(row=1, column=0, sticky="ew")
             if self.discord_path_config:
                 self.discord_path.entry.set(self.discord_path_config)
+
+        if self.vencord_installation_path:
+            self.vencord_path.entry.set(self.vencord_installation_path)
 
 
 class PluginsTab(ctk.CTkFrame):
@@ -139,30 +155,45 @@ class PluginsTab(ctk.CTkFrame):
         self.grid_rowconfigure(3, weight=1)
 
         def refresh_plugins_list():
-            plugins = func.get_installed_plugins(vencord_installation_path)
-            self.plugins_listbox.configure(state="normal")
-            self.plugins_listbox.delete("1.0", "end")
-            if plugins:
-                for plugin in plugins:
-                    self.plugins_listbox.insert("end", f"- {plugin}\n")
-            else:
-                self.plugins_listbox.insert("end", "No plugins installed.")
-            self.plugins_listbox.configure(state="disabled")
+            def update():
+                plugins = func.get_installed_plugins(vencord_installation_path)
+                self.plugins_listbox.configure(state="normal")
+                self.plugins_listbox.delete("1.0", "end")
+                if plugins:
+                    for plugin in plugins:
+                        self.plugins_listbox.insert("end", f"- {plugin}\n")
+                else:
+                    self.plugins_listbox.insert("end", "No plugins installed.")
+                self.plugins_listbox.configure(state="disabled")
+            self.after(0, update)
 
         self.link_entry_plugin = URLEntry(self, placeholder="Plugin URL")
-        self.link_entry_plugin.button.configure(text="Install", command=lambda: func.install_plugin(
-            plugin_link=self.link_entry_plugin.get(), callback=log_callback(self),
-            vencord_installation_path=vencord_installation_path, on_complete=refresh_plugins_list))
+        self.link_entry_plugin.button.configure(text="Install",
+                                                command=lambda: self.winfo_toplevel().run_in_thread(
+                                                    target_func=func.install_plugin,
+                                                    status_text="Installing plugin",
+                                                    plugin_link=self.link_entry_plugin.get(),
+                                                    callback=log_callback(self),
+                                                    vencord_installation_path=vencord_installation_path,
+                                                    on_complete=refresh_plugins_list))
         self.link_entry_plugin.grid(row=0, column=0, sticky="ew")
 
         self.buttons_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.buttons_frame.grid(row=1, column=0, padx=10, pady=10, sticky="ew")
         self.buttons_frame.grid_columnconfigure((0, 1), weight=1)
-        self.update_plugins_button = ctk.CTkButton(self.buttons_frame, text="Update all plugins", command=lambda: func.update_plugins(
-            vencord_installation_path=vencord_installation_path, callback=log_callback(self)))
+        self.update_plugins_button = ctk.CTkButton(self.buttons_frame, text="Update all plugins",
+                                                   command=lambda: self.winfo_toplevel().run_in_thread(
+                                                       target_func=func.update_plugins,
+                                                       status_text="Updating plugins",
+                                                       vencord_installation_path=vencord_installation_path,
+                                                       callback=log_callback(self)))
         self.update_plugins_button.grid(row=0, column=0, sticky="ew")
-        self.build_button = ctk.CTkButton(self.buttons_frame, text="Build Vencord", command=lambda: func.build_vencord(
-            vencord_installation_path=vencord_installation_path, callback=log_callback(self)))
+        self.build_button = ctk.CTkButton(self.buttons_frame, text="Build Vencord",
+                                          command=lambda: self.winfo_toplevel().run_in_thread(
+                                              target_func=func.build_vencord,
+                                              status_text="Building Vencord",
+                                              vencord_installation_path=vencord_installation_path,
+                                              callback=log_callback(self)))
         self.build_button.grid(row=0, column=1, padx=10, pady=10, sticky="ew")
 
         self.plugins_listbox_label = ctk.CTkLabel(self, text="Installed plugins:")
@@ -181,19 +212,26 @@ class ThemesTab(ctk.CTkFrame):
         self.grid_rowconfigure(3, weight=1)
 
         def refresh_themes_list():
-            themes = func.get_installed_themes()
-            self.themes_listbox.configure(state="normal")
-            self.themes_listbox.delete("1.0", "end")
-            if themes:
-                for theme in themes:
-                    self.themes_listbox.insert("end", f"- {theme}\n")
-            else:
-                self.themes_listbox.insert("end", "No themes installed.")
-            self.themes_listbox.configure(state="disabled")
+            def update():
+                themes = func.get_installed_themes()
+                self.themes_listbox.configure(state="normal")
+                self.themes_listbox.delete("1.0", "end")
+                if themes:
+                    for theme in themes:
+                        self.themes_listbox.insert("end", f"- {theme}\n")
+                else:
+                    self.themes_listbox.insert("end", "No themes installed.")
+                self.themes_listbox.configure(state="disabled")
+            self.after(0, update)
 
         self.link_entry_themes = URLEntry(self, placeholder="Theme URL")
-        self.link_entry_themes.button.configure(text="Install", command=lambda: func.install_theme(
-            theme_link=self.link_entry_themes.get(), callback=log_callback(self), on_complete=refresh_themes_list))
+        self.link_entry_themes.button.configure(text="Install",
+                                                command=lambda: self.winfo_toplevel().run_in_thread(
+                                                    target_func=func.install_theme,
+                                                    status_text="Installing theme",
+                                                    theme_link=self.link_entry_themes.get(),
+                                                    callback=log_callback(self),
+                                                    on_complete=refresh_themes_list))
         self.link_entry_themes.grid(row=0, column=0, sticky="ew")
         self.themes_listbox_label = ctk.CTkLabel(self, text="Installed themes:")
         self.themes_listbox_label.grid(row=2, column=0, padx=10, pady=(10, 0), sticky="w")
@@ -240,7 +278,7 @@ class LogTab(ctk.CTkFrame):
 
     def append_log(self, text):
         self.log_textbox.configure(state="normal")
-        self.log_textbox.insert("end", text + "\n")
+        self.log_textbox.insert("end", "\n" + text)
         self.log_textbox.see("end")
         self.log_textbox.configure(state="disabled")
 
@@ -287,6 +325,7 @@ class MissingDependenciesTab(ctk.CTk):
 class App(ctk.CTk):
     def __init__(self, config):
         super().__init__()
+        self.is_running = False
 
         self.title("Vencord Dev Manager")
         self.geometry("425x365")
@@ -298,3 +337,38 @@ class App(ctk.CTk):
         self.tabview_1.grid(row=0, column=0, padx=10, pady=10, sticky="nsew", columnspan=2)
         self.log_tab = LogTab(self)
         self.log_tab.grid(row=1, column=0, padx=10, pady=10, sticky="nsew", columnspan=2)
+
+        self.all_buttons = self._get_all_buttons()
+
+    def _get_all_buttons(self):
+        buttons = []
+
+        def collect(widget):
+            if isinstance(widget, ctk.CTkButton):
+                buttons.append(widget)
+            for child in widget.winfo_children():
+                collect(child)
+        collect(self.tabview_1)
+        return buttons
+
+    def _set_all_buttons_state(self, state):
+        for btn in self.all_buttons:
+            btn.configure(state=state)
+
+    def run_in_thread(self, target_func, status_text, *args, **kwargs):
+        if self.is_running:
+            return
+
+        set_status = status_callback(self)
+
+        def task():
+            self.is_running = True
+            buttons_state = {btn: btn.cget("state") for btn in self._get_all_buttons()}
+            self.after(0, lambda: self._set_all_buttons_state("disabled"))
+            set_status(f"{status_text}...")
+            target_func(*args, **kwargs)
+            set_status(f"{status_text} completed.")
+            self.is_running = False
+            self.after(0, lambda: [btn.configure(state=state) for btn, state in buttons_state.items()])
+
+        Thread(target=task, daemon=True).start()

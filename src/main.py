@@ -4,7 +4,7 @@ from customtkinter import set_appearance_mode, set_default_color_theme
 
 if __name__ == '__main__':
     set_appearance_mode("dark")
-    set_default_color_theme("C:/Users/yaros/Documents/Coding/GitHub/vencord_dev_manager/src/dark-green.json")
+    set_default_color_theme("dark-green.json")
 
     deps = func.check_dependencies()
     if not all(deps.values()):

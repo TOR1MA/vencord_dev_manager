@@ -14,10 +14,12 @@ DEPENDENCIES_URLS = {
 }
 
 DEFAULT_CONFIG = {
-    "vencord_installation_path": str(pathlib.Path.home() / "Documents"),
+    "vencord_installation_path": "",
     "discord_path": "",
-    "discord_branch": "stable"
+    "discord_branch": ""
 }
+
+DEFAULT_VENCORD_INSTALLATION_PATH = str(pathlib.Path.home() / "Documents")
 
 
 def save_config(config_path, config):
@@ -49,6 +51,16 @@ def remove_readonly(func, path, exc):
     func(path)
 
 
+def validate_path(text, path, callback):
+    if not path:
+        callback(f"Error: {text} path is not set.")
+        return False
+    if not pathlib.Path(path).exists():
+        callback(f"Error: Path '{path}' does not exist.")
+        return False
+    return True
+
+
 def check_dependencies():
     dependencies = ["git", "node", "pnpm"]
     checked_deps = {}
@@ -65,8 +77,11 @@ def download_dependencies(missing_deps):
 
 
 def install_vencord(vencord_installation_path, branch, callback, discord_path=None):
+    if not validate_path("Vencord installation", vencord_installation_path, callback):
+        return
+    if branch == "custom" and not validate_path("Discord", discord_path, callback):
+        return
     vencord_folder = pathlib.Path(vencord_installation_path) / "Vencord"
-    vencord_cli_path = pathlib.Path(vencord_installation_path) / "Vencord" / "dist" / "Installer"
     run_command("git clone https://github.com/Vendicated/Vencord.git", cwd=vencord_installation_path,
                 callback=callback)
     run_command("npm i -g pnpm", cwd=vencord_folder, callback=callback)
@@ -74,10 +89,11 @@ def install_vencord(vencord_installation_path, branch, callback, discord_path=No
     run_command("pnpm build", cwd=vencord_folder, callback=callback)
     (vencord_folder / "src" / "userplugins").mkdir(parents=True, exist_ok=True)
     if branch == 'custom':
-        run_command(f"VencordInstallerCli.exe -location {discord_path} -install", cwd=vencord_cli_path,
+        run_command(f"node scripts/runInstaller.mjs -- --install --location {discord_path}", cwd=vencord_folder,
                     callback=callback)
     else:
-        run_command(f"VencordInstallerCli.exe -branch {branch} -install", cwd=vencord_cli_path, callback=callback)
+        run_command(f"node scripts/runInstaller.mjs -- --install --branch {branch}", cwd=vencord_folder,
+                    callback=callback)
     config = {
         "vencord_installation_path": str(vencord_installation_path),
         "discord_path": discord_path if discord_path else "",
@@ -87,25 +103,39 @@ def install_vencord(vencord_installation_path, branch, callback, discord_path=No
 
 
 def repair_vencord(vencord_installation_path, branch, callback, discord_path=None):
-    vencord_cli_path = pathlib.Path(vencord_installation_path) / "Vencord" / "dist" / "Installer"
+    if not validate_path("Vencord installation", vencord_installation_path, callback):
+        return
+    if branch == "custom" and not validate_path("Discord", discord_path, callback):
+        return
+    vencord_folder = pathlib.Path(vencord_installation_path) / "Vencord"
     if branch == 'custom':
-        run_command(f"VencordInstallerCli.exe -location {discord_path} -repair", cwd=vencord_cli_path,
+        run_command(f"node scripts/runInstaller.mjs -- --repair --location {discord_path}", cwd=vencord_folder,
                     callback=callback)
     else:
-        run_command(f"VencordInstallerCli.exe -branch {branch} -repair", cwd=vencord_cli_path, callback=callback)
+        run_command(f"node scripts/runInstaller.mjs -- --repair --branch {branch}", cwd=vencord_folder,
+                    callback=callback)
 
 
 def uninstall_vencord(vencord_installation_path, branch, callback, discord_path=None):
-    vencord_cli_path = pathlib.Path(vencord_installation_path) / "Vencord" / "dist" / "Installer"
+    if not validate_path("Vencord installation", vencord_installation_path, callback):
+        return
+    if branch == "custom" and not validate_path("Discord", discord_path, callback):
+        return
+    vencord_folder = pathlib.Path(vencord_installation_path) / "Vencord"
     if branch == 'custom':
-        run_command(f"VencordInstallerCli.exe -location {discord_path} -uninstall", cwd=vencord_cli_path,
+        run_command(f"node scripts/runInstaller.mjs -- --uninstall --location {discord_path}", cwd=vencord_folder,
                     callback=callback)
     else:
-        run_command(f"VencordInstallerCli.exe -branch {branch} -uninstall", cwd=vencord_cli_path, callback=callback)
+        run_command(f"node scripts/runInstaller.mjs -- --uninstall --branch {branch}", cwd=vencord_folder,
+                    callback=callback)
     rmtree(pathlib.Path(vencord_installation_path) / "Vencord", onexc=remove_readonly)
 
 
 def reinstall_vencord(vencord_installation_path, branch, callback, discord_path=None):
+    if not validate_path("Vencord installation", vencord_installation_path, callback):
+        return
+    if branch == "custom" and not validate_path("Discord", discord_path, callback):
+        return
     plugins_folder = pathlib.Path(vencord_installation_path) / "Vencord" / "src" / "userplugins"
     temp_dir = mkdtemp()
     copytree(plugins_folder, temp_dir, dirs_exist_ok=True)
@@ -113,14 +143,19 @@ def reinstall_vencord(vencord_installation_path, branch, callback, discord_path=
     install_vencord(vencord_installation_path, branch, callback, discord_path)
     copytree(temp_dir, plugins_folder, dirs_exist_ok=True)
     rmtree(temp_dir, onexc=remove_readonly)
+    build_vencord(vencord_installation_path, callback)
 
 
 def build_vencord(vencord_installation_path, callback):
+    if not validate_path("Vencord installation", vencord_installation_path, callback):
+        return
     vencord_folder = pathlib.Path(vencord_installation_path) / "Vencord"
     run_command("pnpm build", cwd=vencord_folder, callback=callback)
 
 
 def install_plugin(plugin_link, vencord_installation_path, callback, on_complete=None):
+    if not validate_path("Vencord installation", vencord_installation_path, callback):
+        return
     plugins_path = pathlib.Path(vencord_installation_path) / "Vencord" / "src" / "userplugins"
     run_command(f"git clone {plugin_link}", cwd=plugins_path, callback=callback)
     if on_complete:
@@ -135,6 +170,8 @@ def get_installed_plugins(vencord_installation_path):
 
 
 def update_plugins(vencord_installation_path, callback):
+    if not validate_path("Vencord installation", vencord_installation_path, callback):
+        return
     plugins_path = pathlib.Path(vencord_installation_path) / "Vencord" / "src" / "userplugins"
     for folder in plugins_path.iterdir():
         if folder.is_dir():
