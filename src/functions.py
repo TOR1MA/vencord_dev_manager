@@ -61,7 +61,7 @@ def validate_path(text, path, callback):
 
 
 def check_dependencies():
-    dependencies = ["git", "node", "pnpm"]
+    dependencies = ["git", "node"]
     checked_deps = {}
     for dep in dependencies:
         result = subprocess.run([dep, "--version"], shell=True, capture_output=True)
