@@ -297,9 +297,9 @@ class MissingDependenciesTab(ctk.CTk):
                     self.success = True
                     self.destroy()
                     return
+            self.deps_listbox.delete("1.0", "end")
             for dep in missing_deps:
                 self.deps_listbox.configure(state="normal")
-                self.deps_listbox.delete("1.0", "end")
                 if missing_deps[dep]:
                     self.deps_listbox.insert("end", f"- {dep} ✅\n")
                 else:
@@ -359,15 +359,15 @@ class App(ctk.CTk):
         if self.is_running:
             return
 
+        buttons_state = {btn: btn.cget("state") for btn in self._get_all_buttons()}
         set_status = status_callback(self)
 
         def task():
             self.is_running = True
-            buttons_state = {btn: btn.cget("state") for btn in self._get_all_buttons()}
             self.after(0, lambda: self._set_all_buttons_state("disabled"))
-            set_status(f"{status_text}...")
+            self.after(0, lambda: set_status(f"{status_text}..."))
             target_func(*args, **kwargs)
-            set_status(f"{status_text} completed.")
+            self.after(0, lambda: set_status(f"{status_text} completed."))
             self.is_running = False
             self.after(0, lambda: [btn.configure(state=state) for btn, state in buttons_state.items()])
 
