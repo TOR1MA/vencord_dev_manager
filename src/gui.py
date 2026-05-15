@@ -298,8 +298,8 @@ class MissingDependenciesTab(ctk.CTk):
                     self.destroy()
                     return
             self.deps_listbox.delete("1.0", "end")
+            self.deps_listbox.configure(state="normal")
             for dep in missing_deps:
-                self.deps_listbox.configure(state="normal")
                 if missing_deps[dep]:
                     self.deps_listbox.insert("end", f"- {dep} ✅\n")
                 else:
