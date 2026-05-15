@@ -9,8 +9,7 @@ from tempfile import mkdtemp
 
 DEPENDENCIES_URLS = {
     "git": "https://git-scm.com/downloads",
-    "node": "https://nodejs.org/en/download/",
-    "pnpm": "https://pnpm.io/installation"
+    "node": "https://nodejs.org/en/download/"
 }
 
 DEFAULT_CONFIG = {
