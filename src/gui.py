@@ -286,6 +286,8 @@ class LogTab(ctk.CTkFrame):
 class MissingDependenciesTab(ctk.CTk):
     def __init__(self, missing_deps):
         super().__init__()
+        self.title("Vencord Dev Manager")
+        self.minsize(300, 200)
         self.success = False
 
         self.grid_columnconfigure(0, weight=1)
