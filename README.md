@@ -1,4 +1,4 @@
-## A GUI for installing, reinstalling, uninstalling, and installing third-party plugins and themes for the dev version of Vencord
+## A GUI for installing, reinstalling, uninstalling the dev version of Vencord and installing third-party plugins/themes.
 ## Dependencies:
 - Git
 - Node
