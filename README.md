@@ -37,7 +37,7 @@ python src/main.py
 ## Usage:
 ### Manage Vencord Window:
 - Path to vencord - Allows you to choose a custom directory where the Vencord repository will be downloaded, or use the default location
-- Brach selector - allows you to select a Discord branch. If "Custom" is selected, you must specify the path to Discord manually
+- Branch selector - allows you to select a Discord branch. If "Custom" is selected, you must specify the path to Discord manually
 - Install - clones the repository, installs pnpm, builds Vencord, installs it, and saves the configuration
 - Repair - runs Vencord's built-in repair process
 - Reinstall - fully uninstalls Vencord and then reinstalls it while preserving all user plugins in a temporary folder
